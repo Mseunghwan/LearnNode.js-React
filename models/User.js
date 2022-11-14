@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt')
 const saltRounds = 10
+const jwt = require('jsonwebtoken')
 
 const userSchema = mongoose.Schema({
     name: {
@@ -14,7 +15,7 @@ const userSchema = mongoose.Schema({
     },
     password: {
         type: String,
-        minlength:5
+        minlength: 5
     },
     lastname: {
         type: String,
@@ -24,18 +25,16 @@ const userSchema = mongoose.Schema({
         type: Number, // 유저 - 0 / 관리자 - 1 이런 식
         default: 0
     },
-    image:{
-        image: String,
-        token:{
+    image: String,
+    token:{
             type: String// 유효성 관리 가능
-        },
-        tokenExp:{
+    },
+    tokenExp:{
             type: Number // 토큰 사용기간 지정
-        }
     }
-})
+    })
 
-userSchema.pre('save', function( next ){
+userSchema.pre('save', function(next){
     var user = this; // this는 위 스키마 부분을 가리킴
 
     if(user.isModified('password')){
@@ -57,9 +56,26 @@ userSchema.methods.comparePassword = function(plainPassword, cb){
     // plainPassword 123456 
     // 암호화된 비밀번호 $2b$10$5E9P.VyfneqH/.eXmTaPQeqIqoPTaXmdM2GLSnEYbxdasW3gUZOr2
     // 암호화 체크 방법? plainPassword를 암호화해서 비교
-    bcrypt.compare(plainpassword, this.password, function(err, isMatch){
-        if(err) return cb(err), // 에러 있을 시 콜백
+    bcrypt.compare(plainPassword, this.password, function(err, isMatch){
+        if(err) return cb(err); // 에러 있을 시 콜백
         cb(null, isMatch) // 에러 없을 시 콜백, 에러는 null(없고), isMatch는 true값이 들어가 있을 것
+    })
+}
+
+userSchema.methods.generateToken = function(cb){
+
+    var user = this;
+
+    // jsonwebtoken을 이용해서 토큰을 생성하기
+    
+    var token = jwt.sign(user._id.toHexString(), 'secretToken')
+    // secretToken이라는 임의의 문자열을 설정하는데, 여기서 만약 토큰이 생성되면 secretToken에 따라서 user id를 판별한다
+    // 즉, user._id + 'secretToken' = token 인데, secretToken을 통해 user._id 알 수 있다는 거
+
+    user.token = token
+    user.save(function(err, user){
+        if(err) return cb(err)
+        cb(null, user)
     })
 }
 
